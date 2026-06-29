@@ -55,3 +55,11 @@ body {
   border: 4px solid var(--blue); margin-bottom: 1.25rem;
 }
 .card-message { font-size: 1.1rem; line-height: 1.6; color: var(--text); }
+
+.music-btn {
+  position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 10;
+  width: 56px; height: 56px; border-radius: 50%; border: none;
+  background: var(--blue); color: #fff; font-size: 1.5rem; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(17,94,159,.4); transition: transform .15s ease;
+}
+.music-btn:hover { transform: scale(1.07); }

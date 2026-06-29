@@ -3,6 +3,7 @@ import confetti from "canvas-confetti";
 import Hero from "./components/Hero";
 import Surprise from "./components/Surprise";
 import MessageCard from "./components/MessageCard";
+import MusicButton from "./components/MusicButton";
 
 export default function App() {
   const [revealed, setRevealed] = useState(false);
@@ -19,6 +20,7 @@ export default function App() {
       <Hero />
       <Surprise revealed={revealed} onReveal={() => setRevealed(true)} />
       <MessageCard revealed={revealed} />
+      <MusicButton />
     </main>
   );
 }
