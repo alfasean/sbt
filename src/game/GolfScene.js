@@ -27,7 +27,7 @@ export class GolfScene extends Phaser.Scene {
     this.reduceMotion = this.registry.get("reduceMotion");
 
     this.attempt = 1;
-    this.state = "aiming"; // aiming | flying | missed | won
+    this.state = "aiming"; // aiming | flying | resolving | missed | won
     this.wind = generateWind();
 
     this.drawBackground();
@@ -244,8 +244,14 @@ export class GolfScene extends Phaser.Scene {
     this.state = "missed";
     this.hintText.setVisible(false);
     this.showBanner(`${T.missText}\n${T.tapToRetry}`, 0x5c6b7a);
-    // next tap anywhere clears the banner and re-tees
-    this.input.once("pointerdown", () => {
+    // Dismiss on pointerup (not pointerdown): the persistent onPointerDown
+    // listener above runs first on the same press and early-returns while
+    // state is "missed" without arming `dragging`, so a pointerdown-based
+    // dismiss would swallow that same press-drag-release as a dead gesture.
+    // Binding to pointerup instead means the tap-to-retry gesture only ever
+    // resets state on release, after which the player's next full
+    // press-drag-release starts cleanly in the "aiming" state.
+    this.input.once("pointerup", () => {
       if (this.banner) this.banner.destroy();
       this.resetForRetry();
     });
@@ -256,14 +262,36 @@ export class GolfScene extends Phaser.Scene {
     this.hintText.setVisible(false);
     this.aimGfx.clear();
 
-    // ball drops into the cup
+    // Ball drops into the cup. It may not have actually stopped at CUP_X
+    // (e.g. the guaranteed-sink attempt can land it anywhere), so snap its
+    // x to the cup and animate it settling in there so the win always reads
+    // as "ball drops in the hole". A Matter body becomes static below, and
+    // Matter re-syncs a static body's game-object transform from its
+    // (fixed) physics body every step, so tweening ball.y/scale directly
+    // would never render — drive the drop via setPosition/setScale in the
+    // tween's onUpdate instead.
     this.ball.setStatic(true);
-    this.tweens.add({
-      targets: this.ball,
-      y: GROUND_Y + 6,
-      scale: 0.2,
-      duration: this.reduceMotion ? 1 : 260,
-    });
+    const dropStartY = this.ball.y;
+    const dropEndY = GROUND_Y + 6;
+    this.ball.setPosition(CUP_X, dropStartY);
+    if (this.reduceMotion) {
+      this.ball.setPosition(CUP_X, dropEndY);
+      this.ball.setScale(0.2);
+    } else {
+      const drop = { t: 0 };
+      this.tweens.add({
+        targets: drop,
+        t: 1,
+        duration: 260,
+        onUpdate: () => {
+          this.ball.setPosition(
+            CUP_X,
+            Phaser.Math.Linear(dropStartY, dropEndY, drop.t)
+          );
+          this.ball.setScale(Phaser.Math.Linear(1, 0.2, drop.t));
+        },
+      });
+    }
 
     // hole/flag become a birthday cake
     this.drawCake();

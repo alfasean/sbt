@@ -5,7 +5,8 @@ import GolfGame from "./components/GolfGame";
 import Reveal from "./components/Reveal";
 import MusicButton from "./components/MusicButton";
 
-// intro → game (shot 1 misses, shot 2 sinks) → reveal
+// intro → game (real Matter physics; an assist guarantees a sink within a
+// few attempts) → reveal
 export default function App() {
   const [stage, setStage] = useState("intro");
 

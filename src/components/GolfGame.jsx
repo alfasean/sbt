@@ -12,7 +12,18 @@ export default function GolfGame({ onComplete }) {
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (gameRef.current) return; // guard React StrictMode double-mount
+    // `if (gameRef.current) return` doesn't guard StrictMode's dev-only
+    // create -> destroy -> create cycle: React nulls the ref via the first
+    // effect's cleanup before invoking the effect a second time, so the
+    // check always sees `null` and a transient duplicate <canvas> can be
+    // created. Emptying the container right before creating is robust to
+    // that cycle regardless of how quickly the previous game's destroy()
+    // finishes tearing down its DOM, while still doing exactly one create +
+    // one clean destroy on a real mount/unmount.
+    if (containerRef.current) {
+      containerRef.current.innerHTML = "";
+    }
+
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -40,7 +51,7 @@ export default function GolfGame({ onComplete }) {
 
     return () => {
       game.destroy(true);
-      gameRef.current = null;
+      if (gameRef.current === game) gameRef.current = null;
     };
   }, []);
 
