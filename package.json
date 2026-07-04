@@ -13,6 +13,7 @@
   "dependencies": {
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.42.0",
+    "phaser": "^3.90.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
