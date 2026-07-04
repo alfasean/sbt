@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import confetti from "canvas-confetti";
 import content from "../data/content";
 import { generateWind, isSunk } from "./physics";
+import tobiUrl from "../assets/tobi-asset.png";
 
 const { game: T } = content;
 
@@ -22,6 +23,17 @@ export class GolfScene extends Phaser.Scene {
     super("golf");
   }
 
+  preload() {
+    // Tobi mascot sprite sheet: 3x3 grid (source 1136x941 -> 378x313 frames).
+    //   frames 0-2: golf ready / swing / finish
+    //   frames 3-5: celebrate
+    //   frames 6-8: wave
+    this.load.spritesheet("tobi", tobiUrl, {
+      frameWidth: 378,
+      frameHeight: 313,
+    });
+  }
+
   create() {
     this.onComplete = this.registry.get("onComplete");
     this.reduceMotion = this.registry.get("reduceMotion");
@@ -34,6 +46,7 @@ export class GolfScene extends Phaser.Scene {
     this.buildGround();
     this.buildHole();
     this.createBall();
+    this.createGolfer();
     this.buildHud();
 
     this.aimGfx = this.add.graphics().setDepth(5);
@@ -133,6 +146,32 @@ export class GolfScene extends Phaser.Scene {
     this.ball.setDepth(2);
   }
 
+  createGolfer() {
+    this.buildTobiAnims();
+    // Tobi stands just left of the tee, facing the hole (feet on the ground).
+    this.golfer = this.add
+      .sprite(56, GROUND_Y + 4, "tobi", 0)
+      .setOrigin(0.5, 1)
+      .setDepth(1);
+    this.golfer.setScale(150 / 313); // render ~150px tall
+  }
+
+  buildTobiAnims() {
+    if (this.anims.exists("tobi-swing")) return;
+    this.anims.create({
+      key: "tobi-swing",
+      frames: this.anims.generateFrameNumbers("tobi", { frames: [1, 2] }),
+      frameRate: 8,
+      repeat: 0,
+    });
+    this.anims.create({
+      key: "tobi-celebrate",
+      frames: this.anims.generateFrameNumbers("tobi", { frames: [3, 4, 5] }),
+      frameRate: 6,
+      repeat: -1,
+    });
+  }
+
   buildHud() {
     this.hintText = this.add
       .text(W / 2, H - 28, T.hint, {
@@ -209,6 +248,9 @@ export class GolfScene extends Phaser.Scene {
   launch(vx, vy) {
     this.state = "flying";
     this.hintText.setVisible(false);
+    // Tobi takes his swing as the ball leaves the tee.
+    if (this.reduceMotion) this.golfer.setFrame(2);
+    else this.golfer.play("tobi-swing");
     this.ball.setVelocity(vx, vy);
     this.ball.setAngularVelocity(vx * 0.02);
   }
@@ -261,6 +303,10 @@ export class GolfScene extends Phaser.Scene {
     this.state = "won";
     this.hintText.setVisible(false);
     this.aimGfx.clear();
+
+    // Tobi celebrates the hole-in-one.
+    if (this.reduceMotion) this.golfer.setFrame(4);
+    else this.golfer.play("tobi-celebrate");
 
     // Ball drops into the cup. It may not have actually stopped at CUP_X
     // (e.g. the guaranteed-sink attempt can land it anywhere), so snap its
@@ -362,6 +408,9 @@ export class GolfScene extends Phaser.Scene {
     this.ball.setPosition(TEE_X, GROUND_Y - BALL_R);
     this.ball.setRotation(0);
     this.hintText.setVisible(true);
+    // Tobi returns to his ready stance for the next shot.
+    this.golfer.stop();
+    this.golfer.setFrame(0);
     this.state = "aiming";
   }
 }
