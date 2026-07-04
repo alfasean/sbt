@@ -11,6 +11,11 @@ export const TEE_X = 120;
 export const CUP_X = 680;
 export const BALL_R = 12;
 
+const MAX_PULL = 240; // px; drag beyond this is clamped
+const POWER = 0.05; // pull-distance (px) -> launch velocity
+const WIND_ACCEL = 0.14; // per-frame vx nudge at full wind strength (airborne only)
+const STOP_SPEED = 0.6; // speed below which a grounded ball counts as stopped
+
 export class GolfScene extends Phaser.Scene {
   constructor() {
     super("golf");
@@ -29,6 +34,11 @@ export class GolfScene extends Phaser.Scene {
     this.buildHole();
     this.createBall();
     this.buildHud();
+
+    this.aimGfx = this.add.graphics().setDepth(5);
+    this.input.on("pointerdown", this.onPointerDown, this);
+    this.input.on("pointermove", this.onPointerMove, this);
+    this.input.on("pointerup", this.onPointerUp, this);
   }
 
   drawBackground() {
@@ -148,5 +158,91 @@ export class GolfScene extends Phaser.Scene {
     const arrow = this.wind.direction < 0 ? "←" : "→";
     const pct = Math.round(this.wind.strength * 100);
     this.windText.setText(`${T.windLabel} ${arrow} ${pct}%`);
+  }
+
+  onPointerDown(pointer) {
+    if (this.state !== "aiming") return;
+    this.dragging = true;
+    this.onPointerMove(pointer);
+  }
+
+  onPointerMove(pointer) {
+    if (!this.dragging || this.state !== "aiming") return;
+    // Slingshot: launch vector points from the pointer back toward the ball.
+    let vx = this.ball.x - pointer.x;
+    let vy = this.ball.y - pointer.y;
+    const len = Math.hypot(vx, vy);
+    if (len > MAX_PULL) {
+      vx = (vx / len) * MAX_PULL;
+      vy = (vy / len) * MAX_PULL;
+    }
+    this.aim = { vx, vy };
+    this.drawTrajectory(vx, vy);
+  }
+
+  onPointerUp() {
+    if (!this.dragging || this.state !== "aiming" || !this.aim) return;
+    this.dragging = false;
+    this.aimGfx.clear();
+    this.launch(this.aim.vx * POWER, this.aim.vy * POWER);
+    this.aim = null;
+  }
+
+  drawTrajectory(vx, vy) {
+    // Cheap preview: integrate a projectile (ignores wind/bounce). Hint only.
+    this.aimGfx.clear();
+    this.aimGfx.fillStyle(0xffffff, 0.7);
+    let x = this.ball.x;
+    let y = this.ball.y;
+    let dx = vx * POWER;
+    let dy = vy * POWER;
+    for (let i = 0; i < 22; i++) {
+      x += dx;
+      y += dy;
+      dy += 0.35; // approx gravity per step
+      if (y > GROUND_Y - BALL_R) break;
+      if (i % 2 === 0) this.aimGfx.fillCircle(x, y, 2.5);
+    }
+  }
+
+  launch(vx, vy) {
+    this.state = "flying";
+    this.hintText.setVisible(false);
+    this.ball.setVelocity(vx, vy);
+    this.ball.setAngularVelocity(vx * 0.02);
+  }
+
+  update() {
+    if (this.state !== "flying") return;
+    const v = this.ball.body.velocity;
+    const airborne = this.ball.y < GROUND_Y - BALL_R - 4;
+    if (airborne) {
+      this.ball.setVelocityX(
+        v.x + this.wind.direction * this.wind.strength * WIND_ACCEL
+      );
+    }
+    const speed = Math.hypot(v.x, v.y);
+    if (!airborne && speed < STOP_SPEED) {
+      this.resolveShot();
+    }
+    // safety: ball left the field
+    if (this.ball.x < -50 || this.ball.x > W + 50) this.resolveShot();
+  }
+
+  // Task 4: just reset. Task 5 replaces this with win/miss logic.
+  resolveShot() {
+    this.resetForRetry();
+  }
+
+  resetForRetry() {
+    this.attempt += 1;
+    this.wind = generateWind();
+    this.updateHud();
+    this.ball.setVelocity(0, 0);
+    this.ball.setAngularVelocity(0);
+    this.ball.setPosition(TEE_X, GROUND_Y - BALL_R);
+    this.ball.setRotation(0);
+    this.hintText.setVisible(true);
+    this.state = "aiming";
   }
 }
