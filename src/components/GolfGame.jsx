@@ -55,5 +55,23 @@ export default function GolfGame({ onComplete }) {
     };
   }, []);
 
-  return <div ref={containerRef} className="golf-canvas" />;
+  const toggleFullscreen = () => {
+    const scale = gameRef.current?.scale;
+    if (!scale) return;
+    scale.toggleFullscreen(); // must run from this user gesture
+  };
+
+  return (
+    <div className="golf-stage">
+      <div ref={containerRef} className="golf-canvas" />
+      <button
+        type="button"
+        className="fullscreen-btn"
+        onClick={toggleFullscreen}
+        aria-label="Layar penuh"
+      >
+        ⛶
+      </button>
+    </div>
+  );
 }
