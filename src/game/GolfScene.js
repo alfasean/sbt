@@ -1,6 +1,7 @@
 import Phaser from "phaser";
+import confetti from "canvas-confetti";
 import content from "../data/content";
-import { generateWind } from "./physics";
+import { generateWind, isSunk } from "./physics";
 
 const { game: T } = content;
 
@@ -229,9 +230,99 @@ export class GolfScene extends Phaser.Scene {
     if (this.ball.x < -50 || this.ball.x > W + 50) this.resolveShot();
   }
 
-  // Task 4: just reset. Task 5 replaces this with win/miss logic.
   resolveShot() {
-    this.resetForRetry();
+    if (this.state !== "flying") return;
+    this.state = "resolving";
+    if (isSunk(this.ball.x, CUP_X, this.attempt)) {
+      this.win();
+    } else {
+      this.miss();
+    }
+  }
+
+  miss() {
+    this.state = "missed";
+    this.hintText.setVisible(false);
+    this.showBanner(`${T.missText}\n${T.tapToRetry}`, 0x5c6b7a);
+    // next tap anywhere clears the banner and re-tees
+    this.input.once("pointerdown", () => {
+      if (this.banner) this.banner.destroy();
+      this.resetForRetry();
+    });
+  }
+
+  win() {
+    this.state = "won";
+    this.hintText.setVisible(false);
+    this.aimGfx.clear();
+
+    // ball drops into the cup
+    this.ball.setStatic(true);
+    this.tweens.add({
+      targets: this.ball,
+      y: GROUND_Y + 6,
+      scale: 0.2,
+      duration: this.reduceMotion ? 1 : 260,
+    });
+
+    // hole/flag become a birthday cake
+    this.drawCake();
+    this.showBanner(T.sinkText, 0xe0a92e);
+    if (!this.reduceMotion) this.burstConfetti();
+
+    const wait = this.reduceMotion ? 400 : 2100;
+    this.time.delayedCall(wait, () => this.onComplete && this.onComplete());
+  }
+
+  drawCake() {
+    const cx = CUP_X;
+    const top = GROUND_Y - 46;
+    const cake = this.add.container(0, 0).setDepth(6);
+    cake.add(this.add.rectangle(cx, top + 30, 70, 46, 0xf6c9a0)); // base
+    cake.add(this.add.rectangle(cx, top + 8, 70, 12, 0xffffff)); // icing
+    for (let i = -1; i <= 1; i++) {
+      cake.add(this.add.rectangle(cx + i * 20, top - 8, 4, 18, 0xff8a3d)); // candle
+      cake.add(this.add.circle(cx + i * 20, top - 20, 4, 0xffe08a)); // flame
+    }
+    if (this.flag) this.flag.setVisible(false);
+    if (!this.reduceMotion) {
+      cake.setScale(0);
+      this.tweens.add({ targets: cake, scale: 1, duration: 420, ease: "Back.out" });
+    }
+  }
+
+  burstConfetti() {
+    confetti({
+      particleCount: 200,
+      spread: 110,
+      startVelocity: 48,
+      origin: { y: 0.7 },
+      colors: ["#115E9F", "#F07522", "#FAFAFA", "#E0A92E"],
+    });
+  }
+
+  showBanner(text, tint) {
+    if (this.banner) this.banner.destroy();
+    this.banner = this.add
+      .text(W / 2, 90, text, {
+        fontFamily: "Anton, sans-serif",
+        fontSize: "30px",
+        color: Phaser.Display.Color.IntegerToColor(tint).rgba,
+        align: "center",
+        backgroundColor: "#ffffffcc",
+        padding: { x: 18, y: 10 },
+      })
+      .setOrigin(0.5)
+      .setDepth(9);
+    if (!this.reduceMotion) {
+      this.banner.setScale(0.8);
+      this.tweens.add({
+        targets: this.banner,
+        scale: 1,
+        duration: 300,
+        ease: "Back.out",
+      });
+    }
   }
 
   resetForRetry() {
