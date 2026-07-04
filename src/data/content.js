@@ -10,10 +10,13 @@ const content = {
     cta: "Mulai Main",
   },
 
-  // --- The game. Shot 1 is a scripted miss, shot 2 a scripted hole-in-one ---
+  // --- The game: real physics golf. The win is guaranteed via a hidden assist
+  // that widens the cup after each miss (see src/game/physics.js). ---
   game: {
-    hint: "Tahan untuk isi tenaga, lepas untuk memukul.",
+    hint: "Tarik bolanya ke belakang, lalu lepas untuk memukul. Awas anginnya! ⛳",
+    windLabel: "Angin",
     missText: "Yaah, meleset tipis! 😅",
+    tapToRetry: "Ketuk untuk coba lagi 🔁",
     retryCta: "Coba Lagi 🔁",
     sinkText: "MASUK! HOLE IN ONE! 🎉",
   },
